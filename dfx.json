@@ -5,19 +5,6 @@
       "candid": "src/token_canister/src/token_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/token_canister.wasm",
       "type": "custom"
-    },
-    "token_canister_assets": {
-      "dependencies": [
-        "token_canister"
-      ],
-      "frontend": {
-        "entrypoint": "src/token_canister_assets/src/index.html"
-      },
-      "source": [
-        "src/token_canister_assets/assets",
-        "dist/token_canister_assets/"
-      ],
-      "type": "assets"
     }
   },
   "defaults": {
