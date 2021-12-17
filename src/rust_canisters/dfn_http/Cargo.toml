@@ -1,0 +1,17 @@
+[package]
+name = "dfn_http"
+version = "0.8.0"
+edition = "2018"
+
+[dependencies]
+candid = "0.7.4"
+serde = "1.0.99"
+ic-cdk = "0.3"
+ic-cdk-macros = "0.3"
+dfn_candid = { path = "../dfn_candid" }
+dfn_core = { path = "../dfn_core" }
+serde_bytes = "0.11"
+
+[[bin]]
+name = "http_wasm"
+path = "test/wasm.rs"

@@ -32,7 +32,7 @@ pub const MIN_BURN_AMOUNT: USDTs = TRANSACTION_FEE;
 
 impl USDTs {
 
-    pub const MAX: Self = ICPTs { e8s: u64::MAX };
+    pub const MAX: Self = USDTs { e8s: u64::MAX };
 
     /// Construct a new instance of USDTs.
     /// This function will not allow you use more than 1 USDTs worth of E8s.
@@ -40,7 +40,7 @@ impl USDTs {
         static CONSTRUCTION_FAILED: &str =
             "Constructing USDT failed because the underlying u64 overflowed";
 
-        let icp_part = usdts
+        let usdt_part = usdts
             .checked_mul(USDT_SUBDIVIDABLE_BY)
             .ok_or_else(|| CONSTRUCTION_FAILED.to_string())?;
         if e8s >= USDT_SUBDIVIDABLE_BY {
@@ -49,7 +49,7 @@ impl USDTs {
                 USDT_SUBDIVIDABLE_BY
             ));
         }
-        let e8s = icp_part
+        let e8s = usdt_part
             .checked_add(e8s)
             .ok_or_else(|| CONSTRUCTION_FAILED.to_string())?;
         Ok(Self { e8s })

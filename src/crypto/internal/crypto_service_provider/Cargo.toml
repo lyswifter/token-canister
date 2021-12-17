@@ -1,0 +1,66 @@
+[package]
+name = "ic-crypto-internal-csp"
+description = "Secret key store and services"
+version = "0.8.0"
+authors = ["The Internet Computer Project Developers"]
+edition = "2018"
+
+[dependencies]
+async-trait = "0.1.41"
+base64 = "0.11"
+hex = "0.4.2"
+ic-config = { path = "../../../config" }
+ic-crypto-internal-basic-sig-der-utils = { path = "../crypto_lib/basic_sig/der_utils" }
+ic-crypto-internal-basic-sig-cose = { path = "../crypto_lib/basic_sig/cose" }
+ic-crypto-internal-basic-sig-ecdsa-secp256k1 = { path = "../crypto_lib/basic_sig/ecdsa_secp256k1" }
+ic-crypto-internal-basic-sig-ecdsa-secp256r1 = { path = "../crypto_lib/basic_sig/ecdsa_secp256r1" }
+ic-crypto-internal-basic-sig-ed25519 = { path = "../crypto_lib/basic_sig/ed25519" }
+ic-crypto-internal-basic-sig-rsa-pkcs1 = { path = "../crypto_lib/basic_sig/rsa_pkcs1" }
+ic-crypto-internal-basic-sig-iccsa = { path = "../crypto_lib/basic_sig/iccsa" }
+ic-crypto-internal-bls12381-common = { path = "../crypto_lib/bls12_381/common" }
+ic-crypto-internal-bls12381-serde-miracl = { path = "../crypto_lib/bls12_381/serde/miracl" }
+ic-crypto-internal-fs-ni-dkg = { path = "../crypto_lib/fs_ni_dkg" }
+ic-crypto-internal-logmon = { path = "../logmon" }
+ic-crypto-internal-multi-sig-bls12381 = { path = "../crypto_lib/multi_sig/bls12_381" }
+ic-crypto-secrets-containers = { path = "../../secrets_containers" }
+ic-crypto-internal-threshold-sig-bls12381 = { path = "../crypto_lib/threshold_sig/bls12_381" }
+ic-crypto-internal-test-vectors = { path = "../test_vectors" }
+ic-crypto-internal-tls = { path = "../crypto_lib/tls" }
+ic-crypto-internal-types = { path = "../crypto_lib/types" }
+ic-crypto-sha = { path = "../../sha" }
+ic-crypto-tls-interfaces = { path = "../../tls_interfaces" }
+ic-interfaces = { path = "../../../interfaces" }
+ic-logger = { path = "../../../monitoring/logger" }
+ic-protobuf = { path = "../../../protobuf" }
+ic-types = { path = "../../../types/types" }
+ic-utils = { path = "../../../utils" }
+lazy_static = "1.4.0"
+openssl = "0.10.36"
+parking_lot = "0.11.1"
+prost = "0.9.0"
+rand = "0.7.3"
+rand_chacha = "0.2.2"
+rand_core = "0.5.1"
+ring = "0.16.20"
+serde = { version = "1.0.99", features = [ "derive" ] }
+serde_cbor = "0.11.1"
+simple_asn1 = "0.5.4"
+slog = { version = "2.5.2", features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
+strum = "0.18.0"
+strum_macros = "0.18.0"
+tokio = { version = "1.9.0", features = ["full"] }
+tokio-openssl = "0.6.0"
+zeroize = { version = "1.1.0", features = ["zeroize_derive"] }
+
+[build-dependencies]
+prost-build = "0.9.0"
+
+[dev-dependencies]
+hex = "0.4.2"
+ic-crypto-internal-csp-test-utils = { path = "../csp_test_utils" }
+ic-crypto-test-utils = { path = "../../test_utils" }
+ic-types-test-utils = { path = "../../../types/types_test_utils" }
+mockall = "0.7.2"
+proptest = "0.9.4"
+proptest-derive = "0.1.0"
+tempfile = "3.1.0"
