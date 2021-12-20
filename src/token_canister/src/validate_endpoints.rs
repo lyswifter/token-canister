@@ -1,13 +1,16 @@
 use crate::protobuf;
 use crate::protobuf::transaction::Transfer as PTransfer;
 use crate::{
-    AccountBalanceArgs, AccountIdentifier, Block, BlockArg, BlockRes, CyclesResponse, EncodedBlock,
+    AccountBalanceArgs, AccountIdentifier, BlockArg, BlockRes, CyclesResponse,
     GetBlocksArgs, GetBlocksRes, HashOf, IterBlocksArgs, IterBlocksRes, Memo,
     NotifyCanisterArgs, Operation, SendArgs, Subaccount, TimeStamp, TipOfChainRes, TotalSupplyArgs,
     Transaction, TransactionNotification, HASH_LENGTH, TRANSACTION_FEE,
 };
 
+use crate::ic_block::{ Block, EncodedBlock};
+
 use crate::ic_token::TOKENs;
+
 use dfn_protobuf::ToProto;
 use ic_base_types::{CanisterId, CanisterIdError};
 use protobuf::cycles_notification_response::Response;

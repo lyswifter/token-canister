@@ -1,4 +1,6 @@
-use crate::{spawn, EncodedBlock};
+use crate::spawn;
+use crate::ic_block::EncodedBlock;
+
 use candid::CandidType;
 use ic_types::ic00::{Method, IC_00};
 use ic_types::CanisterId;
