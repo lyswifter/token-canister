@@ -2,7 +2,6 @@ use candid::CandidType;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fmt::Display;
 
 #[derive(
     Serialize,
@@ -84,7 +83,9 @@ impl TOKENs {
 }
 
 impl Add for TOKENs {
-    fn add(self, other: Self) -> Result<Self, String> {
+    type Output = Result<Self, String>;
+
+    fn add(self, other: Self) -> Self::Output {
         let e8s = self.e8s.checked_add(other.e8s).ok_or_else(|| {
             format!(
                 "Add TOKEN {} + {} failed because the underlying u64 overflowed",
@@ -104,7 +105,7 @@ impl AddAssign for TOKENs {
 impl Sub for TOKENs {
     type Output = Result<Self, String>;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, other: Self) -> Self::Output  {
         let e8s = self.e8s.checked_sub(other.e8s).ok_or_else(|| {
             format!(
                 "Subtracting TOKEN {} - {} failed because the underlying u64 underflowed",
@@ -121,7 +122,7 @@ impl SubAssign for TOKENs {
     }
 }
 
-impl Display for TOKENs {
+impl fmt::Display for TOKENs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -129,5 +130,5 @@ impl Display for TOKENs {
             self.get_tokens(),
             self.get_remainder_e8s()
         )
-    }   
+    }
 }
