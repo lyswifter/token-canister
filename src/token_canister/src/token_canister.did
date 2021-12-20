@@ -1,3 +1,6 @@
+type HashOf = record {
+}
+
 service : {
     "print": () -> () query;
 }

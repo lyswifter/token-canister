@@ -1,26 +1,30 @@
-use crate::AccountIdentifier;
-use crate::archive;
-
-use crate::{LEDGER, TOKENs};
-use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
-use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs};
-
-use crate::add_payment;
-
-use ic_types::CanisterId;
-use ic_cdk_macros::*;
-
-use dfn_core::over_async;
-use dfn_protobuf::{protobuf, ProtoBuf};
-
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dfn_core::api::{set_certified_data, caller};
-
+use crate::AccountIdentifier;
+use crate::archive;
+use crate::{LEDGER, TOKENs};
+use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
+use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, TipOfChainRes, BlockRes, TransactionNotification};
+use crate:: { change_notification_state };
+use crate::add_payment;
 use crate::print;
+
+use on_wire::IntoWire;
+use ic_types::CanisterId;
+use ic_cdk_macros::*;
+
+use dfn_protobuf::{protobuf, ProtoBuf};
+use dfn_core::{
+    api::{
+        call_bytes_with_cleanup, call_with_cleanup, caller, data_certificate, set_certified_data,
+        Funds,
+    },
+    endpoint::over_async_may_reject_explicit,
+    over, over_async, over_init, printer, setup, stable, BytesS,
+};
 
 
 // Initialize the ledger canister
@@ -219,6 +223,219 @@ async fn archive_blocks() {
     }
 }
 
+/// You can notify a canister that you have made a payment to it. The
+/// payment must have been made to the account of a canister and from the
+/// callers account. You cannot notify a canister about a transaction it has
+/// already been successfully notified of. If the canister rejects the
+/// notification call it is not considered to have been notified.
+///
+/// # Arguments
+///
+/// * `block_height` -  The height of the block you would like to send a
+///   notification about
+/// * `to_canister` - The canister that received the payment
+/// * `to_subaccount` - The subaccount that received the payment
+pub async fn notify(
+    block_height: BlockHeight,
+    max_fee: TOKENs,
+    from_subaccount: Option<Subaccount>,
+    to_canister: CanisterId,
+    to_subaccount: Option<Subaccount>,
+    notify_using_protobuf: bool,
+) -> Result<BytesS, String> {
+    let caller_principal_id = caller();
+
+    if !LEDGER.read().unwrap().can_send(&caller_principal_id) {
+        panic!(
+            "Notifying from non-self-authenticating principal or non-whitelisted canister is not allowed: {}",
+            caller_principal_id
+        );
+    }
+
+    if !LEDGER.read().unwrap().can_be_notified(&to_canister) {
+        panic!(
+            "Notifying non-whitelisted canister is not allowed: {}",
+            to_canister
+        );
+    }
+
+    let expected_from = AccountIdentifier::new(caller_principal_id, from_subaccount);
+
+    let expected_to = AccountIdentifier::new(to_canister.get(), to_subaccount);
+
+    if max_fee != TRANSACTION_FEE {
+        panic!("Transaction fee should be {}", TRANSACTION_FEE);
+    }
+
+    let raw_block: EncodedBlock =
+        match block(block_height).unwrap_or_else(|| panic!("Block {} not found", block_height)) {
+            Ok(raw_block) => raw_block,
+            Err(cid) => {
+                print(format!(
+                    "Searching canister {} for block {}",
+                    cid, block_height
+                ));
+                // Lookup the block on the archive
+                let BlockRes(res) = call_with_cleanup(cid, "get_block_pb", protobuf, block_height)
+                    .await
+                    .map_err(|e| format!("Failed to fetch block {}", e.1))?;
+                res.ok_or("Block not found")?
+                    .map_err(|c| format!("Tried to redirect lookup a second time to {}", c))?
+            }
+        };
+
+    let block = raw_block.decode().unwrap();
+
+    let (from, to, amount) = match block.transaction().operation {
+        Operation::Transfer {
+            from, to, amount, ..
+        } => (from, to, amount),
+        _ => panic!("Notification failed transfer must be of type send"),
+    };
+
+    assert_eq!(
+        (from, to),
+        (expected_from, expected_to),
+        "sender and recipient must match the specified block"
+    );
+
+    let transaction_notification_args = TransactionNotification {
+        from: caller_principal_id,
+        from_subaccount,
+        to: to_canister,
+        to_subaccount,
+        block_height,
+        amount,
+        memo: block.transaction().memo,
+    };
+
+    let block_timestamp = block.timestamp();
+
+    change_notification_state(block_height, block_timestamp, true).expect("Notification failed");
+
+    // This transaction provides and on chain record that a notification was
+    // attempted
+    let transfer = Operation::Transfer {
+        from: expected_from,
+        to: expected_to,
+        amount: TOKENs::ZERO,
+        fee: max_fee,
+    };
+
+    // While this payment has been made here, it isn't actually committed until you
+    // make an inter canister call. As such we don't reject without rollback until
+    // an inter-canister call has definitely been made
+    add_payment(Memo(block_height), transfer, None);
+
+    let response = if notify_using_protobuf {
+        let bytes = ProtoBuf(transaction_notification_args)
+            .into_bytes()
+            .expect("transaction notification serialization failed");
+        call_bytes_with_cleanup(
+            to_canister,
+            "transaction_notification_pb",
+            &bytes[..],
+            Funds::zero(),
+        )
+        .await
+    } else {
+        let bytes = candid::encode_one(transaction_notification_args)
+            .expect("transaction notification serialization failed");
+        call_bytes_with_cleanup(
+            to_canister,
+            "transaction_notification",
+            &bytes[..],
+            Funds::zero(),
+        )
+        .await
+    };
+    // Don't panic after here or the notification might look like it succeeded
+    // when actually it failed
+
+    // propagate the response/rejection from 'to_canister' if it's shorter than this
+    // length.
+    // This could be done better because we still read in the whole
+    // String/Vec as is
+    pub const MAX_LENGTH: usize = 8192;
+
+    match response {
+        Ok(bs) => {
+            if bs.len() > MAX_LENGTH {
+                let caller = caller();
+                Err(format!(
+                    "Notification succeeded, but the canister '{}' returned too large of a response",
+                    caller,
+                ))
+            } else {
+                Ok(BytesS(bs))
+            }
+        }
+        Err((_code, err)) => {
+            // It may be that by the time this callback is made the block will have been
+            // garbage collected. That is fine because we don't inspect the
+            // response here.
+            let _ = change_notification_state(block_height, block_timestamp, false);
+            if err.len() > MAX_LENGTH {
+                let caller = caller();
+                Err(format!(
+                    "Notification failed, but the canister '{}' returned too large of a response",
+                    caller,
+                ))
+            } else {
+                Err(format!("Notification failed with message '{}'", err))
+            }
+        }
+    }
+}
+
+/// This gives you the index of the last block added to the chain
+/// together with certification
+fn tip_of_chain() -> TipOfChainRes {
+    let last_block_idx = &LEDGER
+        .read()
+        .unwrap()
+        .blockchain
+        .chain_length()
+        .checked_sub(1)
+        .unwrap();
+    let certification = data_certificate();
+    TipOfChainRes {
+        certification,
+        tip_index: *last_block_idx,
+    }
+}
+
+// This is going away and being replaced by getblocks
+fn block(block_index: BlockHeight) -> Option<Result<EncodedBlock, CanisterId>> {
+    let state = LEDGER.read().unwrap();
+    if block_index < state.blockchain.num_archived_blocks() {
+        // The block we are looking for better be in the archive because it has
+        // a height smaller than the number of blocks we've archived so far
+        let result = state
+            .find_block_in_archive(block_index)
+            .expect("block not found in the archive");
+        Some(Err(result))
+    // Or the block may be in the ledger, or the block may not exist
+    } else {
+        print(format!(
+            "[ledger] Checking the ledger for block [{}]",
+            block_index
+        ));
+        state.blockchain.get(block_index).cloned().map(Ok)
+    }
+}
+
+/// Get an account balance.
+/// If the account does not exist it will return 0 ICPTs
+fn account_balance(account: AccountIdentifier) -> TOKENs {
+    LEDGER.read().unwrap().balances.account_balance(&account)
+}
+
+/// The total number of ICPTs not inside the minting canister
+fn total_supply() -> TOKENs {
+    LEDGER.read().unwrap().balances.total_supply()
+}
+
 /// Canister endpoints
 #[update]
 fn send_() {
@@ -233,4 +450,41 @@ fn send_() {
              created_at_time,
          }| { send(memo, amount, fee, from_subaccount, to, created_at_time) },
     );
+}
+
+
+#[export_name = "canister_post_upgrade"]
+fn post_upgrade() {
+    over_init(|_: BytesS| {
+        let mut ledger = LEDGER.write().unwrap();
+        *ledger = serde_cbor::from_reader(&mut stable::StableReader::new())
+            .expect("Decoding stable memory failed");
+
+        set_certified_data(
+            &ledger
+                .blockchain
+                .last_hash
+                .map(|h| h.into_bytes())
+                .unwrap_or([0u8; 32]),
+        );
+    })
+}
+
+#[export_name = "canister_pre_upgrade"]
+fn pre_upgrade() {
+    use std::io::Write;
+
+    setup::START.call_once(|| {
+        printer::hook();
+    });
+
+    let ledger = LEDGER
+        .read()
+        // This should never happen, but it's better to be safe than sorry
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut writer = stable::StableWriter::new();
+    serde_cbor::to_writer(&mut writer, &*ledger).unwrap();
+    writer
+        .flush()
+        .expect("failed to flush stable memory writer");
 }
