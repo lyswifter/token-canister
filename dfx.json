@@ -1,7 +1,7 @@
 {
   "canisters": {
     "token_canister": {
-      "build": "cargo build --target wasm32-unknown-unknown --package token_canister --release",
+      "build": "./build.sh",
       "candid": "src/token_canister/src/token_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/token_canister.wasm",
       "type": "custom"
