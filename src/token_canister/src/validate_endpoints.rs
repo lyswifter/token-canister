@@ -29,13 +29,13 @@ impl ToProto for TotalSupplyArgs {
 
 /// Res
 impl ToProto for TOKENs {
-    type Proto = protobuf::TOKENs;
+    type Proto = protobuf::TokeNs;
     fn from_proto(sel: Self::Proto) -> Result<Self, String> {
         Ok(TOKENs::from_e8s(sel.e8s))
     }
 
     fn into_proto(self) -> Self::Proto {
-        protobuf::TOKENs {
+        protobuf::TokeNs {
             e8s: self.get_e8s(),
         }
     }

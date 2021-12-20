@@ -30,7 +30,7 @@ pub struct SendRequest {
     #[prost(message, optional, tag="2")]
     pub payment: ::core::option::Option<Payment>,
     #[prost(message, optional, tag="3")]
-    pub max_fee: ::core::option::Option<TOKENs>,
+    pub max_fee: ::core::option::Option<TokeNs>,
     #[prost(message, optional, tag="4")]
     pub from_subaccount: ::core::option::Option<Subaccount>,
     #[prost(message, optional, tag="5")]
@@ -51,7 +51,7 @@ pub struct NotifyRequest {
     #[prost(message, optional, tag="1")]
     pub block_height: ::core::option::Option<BlockHeight>,
     #[prost(message, optional, tag="2")]
-    pub max_fee: ::core::option::Option<TOKENs>,
+    pub max_fee: ::core::option::Option<TokeNs>,
     #[prost(message, optional, tag="3")]
     pub from_subaccount: ::core::option::Option<Subaccount>,
     #[prost(message, optional, tag="4")]
@@ -75,7 +75,7 @@ pub struct TransactionNotificationRequest {
     #[prost(message, optional, tag="5")]
     pub block_height: ::core::option::Option<BlockHeight>,
     #[prost(message, optional, tag="6")]
-    pub amount: ::core::option::Option<TOKENs>,
+    pub amount: ::core::option::Option<TokeNs>,
     #[prost(message, optional, tag="7")]
     pub memo: ::core::option::Option<Memo>,
 }
@@ -110,7 +110,7 @@ pub struct AccountBalanceRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountBalanceResponse {
     #[prost(message, optional, tag="1")]
-    pub balance: ::core::option::Option<TOKENs>,
+    pub balance: ::core::option::Option<TokeNs>,
 }
 /// Get the length of the chain with a certification
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -130,7 +130,7 @@ pub struct TotalSupplyRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TotalSupplyResponse {
     #[prost(message, optional, tag="1")]
-    pub total_supply: ::core::option::Option<TOKENs>,
+    pub total_supply: ::core::option::Option<TokeNs>,
 }
 /// Archive any blocks older than this
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -262,14 +262,14 @@ pub struct GetNodesResponse {
 }
 /// ** BASIC TYPES **
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TOKENs {
+pub struct TokeNs {
     #[prost(uint64, tag="1")]
     pub e8s: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Payment {
     #[prost(message, optional, tag="1")]
-    pub receiver_gets: ::core::option::Option<TOKENs>,
+    pub receiver_gets: ::core::option::Option<TokeNs>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BlockHeight {
@@ -296,7 +296,7 @@ pub struct Account {
     #[prost(message, optional, tag="1")]
     pub identifier: ::core::option::Option<AccountIdentifier>,
     #[prost(message, optional, tag="2")]
-    pub balance: ::core::option::Option<TOKENs>,
+    pub balance: ::core::option::Option<TokeNs>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transaction {
@@ -329,23 +329,23 @@ pub struct Send {
     #[prost(message, optional, tag="2")]
     pub to: ::core::option::Option<AccountIdentifier>,
     #[prost(message, optional, tag="3")]
-    pub amount: ::core::option::Option<TOKENs>,
+    pub amount: ::core::option::Option<TokeNs>,
     #[prost(message, optional, tag="4")]
-    pub max_fee: ::core::option::Option<TOKENs>,
+    pub max_fee: ::core::option::Option<TokeNs>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Mint {
     #[prost(message, optional, tag="2")]
     pub to: ::core::option::Option<AccountIdentifier>,
     #[prost(message, optional, tag="3")]
-    pub amount: ::core::option::Option<TOKENs>,
+    pub amount: ::core::option::Option<TokeNs>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Burn {
     #[prost(message, optional, tag="1")]
     pub from: ::core::option::Option<AccountIdentifier>,
     #[prost(message, optional, tag="3")]
-    pub amount: ::core::option::Option<TOKENs>,
+    pub amount: ::core::option::Option<TokeNs>,
 }
 #[derive(candid::CandidType, candid::Deserialize)] #[cfg_attr(feature = "test", derive(comparable::Comparable))]
 #[derive(Clone, PartialEq, ::prost::Message)]
