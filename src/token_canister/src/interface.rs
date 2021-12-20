@@ -3,7 +3,7 @@ use crate::archive;
 
 use crate::{LEDGER, TOKENs};
 use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
-use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount};
+use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs};
 
 use crate::add_payment;
 
@@ -33,7 +33,6 @@ use crate::print;
 /// * `archive_canister` - The canister that manages the store of old blocks.
 /// * `max_message_size_bytes` - The maximum message size that this subnet
 ///   supports. This is used for egressing block to the archive canister.
-/// 
 #[init]
 fn init(
     minting_account: AccountIdentifier,
@@ -112,8 +111,7 @@ fn add_payments(
 /// * `from_subaccount` - The subaccount you want to draw funds from
 /// * `to` - The account you want to send the funds to
 /// * `to_subaccount` - The subaccount you want to send funds to
-// #[update]
-async fn send(
+pub async fn send(
     memo: Memo,
     amount: TOKENs,
     fee: TOKENs,

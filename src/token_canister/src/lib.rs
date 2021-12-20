@@ -19,6 +19,11 @@ use std::str::FromStr;
 use std::sync::RwLock;
 use std::time::Duration;
 
+
+use dfn_core::over_async;
+use dfn_protobuf::{protobuf, ProtoBuf};
+use ic_cdk_macros::*;
+
 pub mod account_identifier;
 pub mod http_request;
 pub mod ic_token;
@@ -42,6 +47,8 @@ pub use account_identifier::{AccountIdentifier, Subaccount};
 pub use ic_token::{TOKENs, DECIMAL_PLACES, TOKEN_SUBDIVIDABLE_BY, MIN_BURN_AMOUNT, TRANSACTION_FEE};
 pub use ic_block::{ Block, Blockchain, EncodedBlock};
 pub use protobuf::TimeStamp;
+
+use interface::send;
 
 // Helper to print messages in magenta
 pub fn print<S: std::convert::AsRef<str>>(s: S)
@@ -1514,4 +1521,20 @@ pub enum CyclesResponse {
     // Silly requirement by the candid derivation
     ToppedUp(()),
     Refunded(String, Option<BlockHeight>),
+}
+
+/// Canister endpoints
+#[update]
+fn send_() {
+    over_async(
+        protobuf,
+        |SendArgs {
+             memo,
+             amount,
+             fee,
+             from_subaccount,
+             to,
+             created_at_time,
+         }| { send(memo, amount, fee, from_subaccount, to, created_at_time) },
+    );
 }
