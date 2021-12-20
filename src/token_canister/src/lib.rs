@@ -23,6 +23,7 @@ pub mod account_identifier;
 pub mod http_request;
 pub mod ic_token;
 pub mod ic_block;
+pub mod interface;
 pub mod metrics_encoder;
 #[path = "../gen/ic_ledger.pb.v1.rs"]
 #[rustfmt::skip]
