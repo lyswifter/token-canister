@@ -10,6 +10,9 @@ use crate::add_payment;
 use ic_types::CanisterId;
 use ic_cdk_macros::*;
 
+use dfn_core::over_async;
+use dfn_protobuf::{protobuf, ProtoBuf};
+
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 use std::sync::Arc;
@@ -214,4 +217,20 @@ async fn archive_blocks() {
             ));
         }
     }
+}
+
+/// Canister endpoints
+#[update]
+fn send_() {
+    over_async(
+        protobuf,
+        |SendArgs {
+             memo,
+             amount,
+             fee,
+             from_subaccount,
+             to,
+             created_at_time,
+         }| { send(memo, amount, fee, from_subaccount, to, created_at_time) },
+    );
 }
