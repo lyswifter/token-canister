@@ -5,12 +5,19 @@ use std::time::Duration;
 
 use crate::AccountIdentifier;
 use crate::archive;
+use crate::protobuf;
+use crate::metrics_encoder;
 use crate::{LEDGER, TOKENs};
 use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
-use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, TipOfChainRes, BlockRes, TransactionNotification};
-use crate:: { change_notification_state };
+use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, 
+    TipOfChainRes, BlockRes, TransactionNotification, NotifyCanisterArgs};
+use crate::{BlockArg, AccountBalanceArgs, GetBlocksArgs, TotalSupplyArgs, IterBlocksArgs, Blockchain};
+
+use crate:: { change_notification_state, iter_blocks, get_blocks, http_request};
 use crate::add_payment;
 use crate::print;
+
+use dfn_candid::{candid, candid_one, CandidOne};
 
 use on_wire::IntoWire;
 use ic_types::CanisterId;
@@ -450,6 +457,241 @@ fn send_() {
              created_at_time,
          }| { send(memo, amount, fee, from_subaccount, to, created_at_time) },
     );
+}
+
+/// Do not use call this from code, this is only here so dfx has something to
+/// call when making a payment. This will be changed in ways that are not
+/// backwards compatible with previous interfaces.
+///
+/// I STRONGLY recommend that you use "send_pb" instead.
+#[export_name = "canister_update send_dfx"]
+fn send_dfx_() {
+    over_async(
+        candid_one,
+        |SendArgs {
+             memo,
+             amount,
+             fee,
+             from_subaccount,
+             to,
+             created_at_time,
+         }| { send(memo, amount, fee, from_subaccount, to, created_at_time) },
+    );
+}
+
+#[export_name = "canister_update notify_pb"]
+fn notify_() {
+    // we use over_init because it doesn't reply automatically so we can do explicit
+    // replies in the callback
+    over_async_may_reject_explicit(
+        |ProtoBuf(NotifyCanisterArgs {
+             block_height,
+             max_fee,
+             from_subaccount,
+             to_canister,
+             to_subaccount,
+         })| {
+            notify(
+                block_height,
+                max_fee,
+                from_subaccount,
+                to_canister,
+                to_subaccount,
+                true,
+            )
+        },
+    );
+}
+
+/// See caveats of use on send_dfx
+#[export_name = "canister_update notify_dfx"]
+fn notify_dfx_() {
+    // we use over_init because it doesn't reply automatically so we can do explicit
+    // replies in the callback
+    over_async_may_reject_explicit(
+        |CandidOne(NotifyCanisterArgs {
+             block_height,
+             max_fee,
+             from_subaccount,
+             to_canister,
+             to_subaccount,
+         })| {
+            notify(
+                block_height,
+                max_fee,
+                from_subaccount,
+                to_canister,
+                to_subaccount,
+                false,
+            )
+        },
+    );
+}
+
+#[export_name = "canister_query block_pb"]
+fn block_() {
+    over(protobuf, |BlockArg(height)| BlockRes(block(height)));
+}
+
+#[export_name = "canister_query tip_of_chain_pb"]
+fn tip_of_chain_() {
+    over(protobuf, |protobuf::TipOfChainRequest {}| tip_of_chain());
+}
+
+#[export_name = "canister_query get_archive_index_pb"]
+fn get_archive_index_() {
+    over(protobuf, |()| {
+        let state = LEDGER.read().unwrap();
+        let entries = match &state
+            .blockchain
+            .archive
+            .try_read()
+            .expect("Failed to get lock on archive")
+            .as_ref()
+        {
+            None => vec![],
+            Some(archive) => archive
+                .index()
+                .into_iter()
+                .map(
+                    |((height_from, height_to), canister_id)| protobuf::ArchiveIndexEntry {
+                        height_from,
+                        height_to,
+                        canister_id: Some(canister_id.get()),
+                    },
+                )
+                .collect(),
+        };
+        protobuf::ArchiveIndexResponse { entries }
+    });
+}
+
+#[export_name = "canister_query account_balance_pb"]
+fn account_balance_() {
+    over(protobuf, |AccountBalanceArgs { account }| {
+        account_balance(account)
+    })
+}
+
+/// See caveats of use on send_dfx
+#[export_name = "canister_query account_balance_dfx"]
+fn account_balance_dfx_() {
+    over(candid_one, |AccountBalanceArgs { account }| {
+        account_balance(account)
+    })
+}
+
+#[export_name = "canister_query total_supply_pb"]
+fn total_supply_() {
+    over(protobuf, |_: TotalSupplyArgs| total_supply())
+}
+
+/// Get multiple blocks by *offset into the container* (not BlockHeight) and
+/// length. Note that this simply iterates the blocks available in the Ledger
+/// without taking into account the archive. For example, if the ledger contains
+/// blocks with heights [100, 199] then iter_blocks(0, 1) will return the block
+/// with height 100.
+#[export_name = "canister_query iter_blocks_pb"]
+fn iter_blocks_() {
+    over(protobuf, |IterBlocksArgs { start, length }| {
+        let blocks = &LEDGER.read().unwrap().blockchain.blocks;
+        iter_blocks(blocks, start, length)
+    });
+}
+
+/// Get multiple blocks by BlockHeight and length. If the query is outside the
+/// range stored in the Node the result is an error.
+#[export_name = "canister_query get_blocks_pb"]
+fn get_blocks_() {
+    over(protobuf, |GetBlocksArgs { start, length }| {
+        let blockchain: &Blockchain = &LEDGER.read().unwrap().blockchain;
+        let start_offset = blockchain.num_archived_blocks();
+        get_blocks(&blockchain.blocks, start_offset, start, length)
+    });
+}
+
+#[export_name = "canister_query get_nodes"]
+fn get_nodes_() {
+    over(candid, |()| -> Vec<CanisterId> {
+        LEDGER
+            .read()
+            .unwrap()
+            .blockchain
+            .archive
+            .try_read()
+            .expect("Failed to get lock on archive")
+            .as_ref()
+            .map(|archive| archive.nodes().to_vec())
+            .unwrap_or_default()
+    });
+}
+
+fn encode_metrics(w: &mut metrics_encoder::MetricsEncoder<Vec<u8>>) -> std::io::Result<()> {
+    let ledger = LEDGER.try_read().map_err(|err| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to get a LEDGER for read: {}", err),
+        )
+    })?;
+
+    w.encode_gauge(
+        "ledger_max_message_size_bytes",
+        *MAX_MESSAGE_SIZE_BYTES.read().unwrap() as f64,
+        "Maximum inter-canister message size in bytes.",
+    )?;
+    w.encode_gauge(
+        "ledger_stable_memory_pages",
+        dfn_core::api::stable_memory_size_in_pages() as f64,
+        "Size of the stable memory allocated by this canister measured in 64K Wasm pages.",
+    )?;
+    w.encode_gauge(
+        "ledger_stable_memory_bytes",
+        (dfn_core::api::stable_memory_size_in_pages() * 64 * 1024) as f64,
+        "Size of the stable memory allocated by this canister.",
+    )?;
+    w.encode_gauge(
+        "ledger_transactions_by_hash_cache_entries",
+        ledger.transactions_by_hash_len() as f64,
+        "Total number of entries in the transactions_by_hash cache.",
+    )?;
+    w.encode_gauge(
+        "ledger_transactions_by_height_entries",
+        ledger.transactions_by_height_len() as f64,
+        "Total number of entries in the transaction_by_height queue.",
+    )?;
+    w.encode_gauge(
+        "ledger_blocks",
+        ledger.blockchain.blocks.len() as f64,
+        "Total number of blocks stored in the main memory.",
+    )?;
+    // This value can go down -- the number is increased before archiving, and if
+    // archiving fails it is decremented.
+    w.encode_gauge(
+        "ledger_archived_blocks",
+        ledger.blockchain.num_archived_blocks as f64,
+        "Total number of blocks sent to the archive.",
+    )?;
+    w.encode_gauge(
+        "ledger_balances_icpt_pool",
+        ledger.balances.icpt_pool.get_tokens() as f64,
+        "Total number of ICPTs in the pool.",
+    )?;
+    w.encode_gauge(
+        "ledger_balance_store_entries",
+        ledger.balances.store.len() as f64,
+        "Total number of accounts in the balance store.",
+    )?;
+    w.encode_gauge(
+        "ledger_most_recent_block_time_seconds",
+        ledger.blockchain.last_timestamp.timestamp_nanos as f64 / 1_000_000_000.0,
+        "IC timestamp of the most recent block.",
+    )?;
+    Ok(())
+}
+
+#[export_name = "canister_query http_request"]
+fn http_request() {
+    http_request::serve_metrics(encode_metrics);
 }
 
 
