@@ -52,7 +52,6 @@ fn init(
     initial_values: HashMap<AccountIdentifier, TOKENs>,
     max_message_size_bytes: Option<usize>,
     transaction_window: Option<Duration>,
-    // archive_options: Option<archive_canister::ArchiveOptions>,
     send_whitelist: HashSet<CanisterId>,
 ) {
     print(format!(
