@@ -1,20 +1,18 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
-use std::sync::Arc;
 use std::time::Duration;
 
 use crate::AccountIdentifier;
-use crate::archive;
 use crate::protobuf;
-// use crate::metrics_encoder;
 use crate::{LEDGER, TOKENs};
 use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
-use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, TransactionNotification, NotifyCanisterArgs};
-use crate::{AccountBalanceArgs, TotalSupplyArgs, Blockchain};
+use crate::{TimeStamp, HashOf, Subaccount, SendArgs, TransactionNotification, NotifyCanisterArgs};
+use crate::{AccountBalanceArgs, TotalSupplyArgs};
 
-use crate::ic_block::{TipOfChainRes, BlockRes, BlockArg, GetBlocksArgs, IterBlocksArgs, iter_blocks};
+use crate::types::{ Memo, Transaction, Operation};
 
-use crate:: { change_notification_state, get_blocks};
+use crate::ic_block::{TipOfChainRes, BlockRes, BlockArg, GetBlocksArgs, IterBlocksArgs, BlockHeight, EncodedBlock, Blockchain, iter_blocks, get_blocks};
+
+use crate:: { change_notification_state};
 use crate::add_payment;
 use crate::print;
 
@@ -54,7 +52,7 @@ fn init(
     initial_values: HashMap<AccountIdentifier, TOKENs>,
     max_message_size_bytes: Option<usize>,
     transaction_window: Option<Duration>,
-    archive_options: Option<archive::ArchiveOptions>,
+    // archive_options: Option<archive_canister::ArchiveOptions>,
     send_whitelist: HashSet<CanisterId>,
 ) {
     print(format!(
@@ -92,11 +90,6 @@ fn init(
             .map(|h| h.into_bytes())
             .unwrap_or([0u8; 32]),
     );
-
-    if let Some(archive_options) = archive_options {
-        LEDGER.write().unwrap().blockchain.archive =
-            Arc::new(RwLock::new(Some(archive::Archive::new(archive_options))))
-    }
 }
 
 fn add_payments(
@@ -178,222 +171,8 @@ pub async fn send(
     // Don't put anything that could ever trap after this call or people using this
     // endpoint. If something did panic the payment would appear to fail, but would
     // actually succeed on chain.
-    archive_blocks().await;
+    // archive_blocks().await;
     height
-}
-
-/// Upon reaching a `trigger_threshold` we will archive `num_blocks`.
-/// This really should be an action on the ledger canister, but since we don't
-/// want to hold a mutable lock on the whole ledger while we're archiving, we
-/// split this method up into the parts that require async (this function) and
-/// the parts that require a lock (Ledger::get_blocks_for_archiving).
-async fn archive_blocks() {
-    let ledger_guard = LEDGER.try_read().expect("Failed to get ledger read lock");
-    let archive_arc = ledger_guard.blockchain.archive.clone();
-    let mut archive_guard = match archive_arc.try_write() {
-        Ok(g) => g,
-        Err(_) => {
-            print("Ledger is currently archiving. Skipping archive_blocks()");
-            return;
-        }
-    };
-    if archive_guard.is_none() {
-        return; // Archiving not enabled
-    }
-    let archive = archive_guard.as_mut().unwrap();
-
-    let blocks_to_archive = ledger_guard
-        .get_blocks_for_archiving(archive.trigger_threshold, archive.num_blocks_to_archive);
-    if blocks_to_archive.is_empty() {
-        return;
-    }
-
-    drop(ledger_guard); // Drop the lock on the ledger
-
-    let num_blocks = blocks_to_archive.len();
-    print(format!("[ledger] archiving {} blocks", num_blocks,));
-
-    let max_msg_size = *MAX_MESSAGE_SIZE_BYTES.read().unwrap();
-    let res = archive
-        .send_blocks_to_archive(blocks_to_archive, max_msg_size)
-        .await;
-
-    let mut ledger = LEDGER.try_write().expect("Failed to get ledger write lock");
-    match res {
-        Ok(num_sent_blocks) => ledger.remove_archived_blocks(num_sent_blocks),
-        Err((num_sent_blocks, archive::FailedToArchiveBlocks(err))) => {
-            ledger.remove_archived_blocks(num_sent_blocks);
-            print(format!(
-                "[ledger] Archiving failed. Archived {} out of {} blocks. Error {}",
-                num_sent_blocks, num_blocks, err
-            ));
-        }
-    }
-}
-
-/// You can notify a canister that you have made a payment to it. The
-/// payment must have been made to the account of a canister and from the
-/// callers account. You cannot notify a canister about a transaction it has
-/// already been successfully notified of. If the canister rejects the
-/// notification call it is not considered to have been notified.
-///
-/// # Arguments
-///
-/// * `block_height` -  The height of the block you would like to send a
-///   notification about
-/// * `to_canister` - The canister that received the payment
-/// * `to_subaccount` - The subaccount that received the payment
-pub async fn notify(
-    block_height: BlockHeight,
-    max_fee: TOKENs,
-    from_subaccount: Option<Subaccount>,
-    to_canister: CanisterId,
-    to_subaccount: Option<Subaccount>,
-    notify_using_protobuf: bool,
-) -> Result<BytesS, String> {
-    let caller_principal_id = caller();
-
-    if !LEDGER.read().unwrap().can_send(&caller_principal_id) {
-        panic!(
-            "Notifying from non-self-authenticating principal or non-whitelisted canister is not allowed: {}",
-            caller_principal_id
-        );
-    }
-
-    if !LEDGER.read().unwrap().can_be_notified(&to_canister) {
-        panic!(
-            "Notifying non-whitelisted canister is not allowed: {}",
-            to_canister
-        );
-    }
-
-    let expected_from = AccountIdentifier::new(caller_principal_id, from_subaccount);
-
-    let expected_to = AccountIdentifier::new(to_canister.get(), to_subaccount);
-
-    if max_fee != TRANSACTION_FEE {
-        panic!("Transaction fee should be {}", TRANSACTION_FEE);
-    }
-
-    let raw_block: EncodedBlock =
-        match block(block_height).unwrap_or_else(|| panic!("Block {} not found", block_height)) {
-            Ok(raw_block) => raw_block,
-            Err(cid) => {
-                print(format!(
-                    "Searching canister {} for block {}",
-                    cid, block_height
-                ));
-                // Lookup the block on the archive
-                let BlockRes(res) = call_with_cleanup(cid, "get_block_pb", protobuf, block_height)
-                    .await
-                    .map_err(|e| format!("Failed to fetch block {}", e.1))?;
-                res.ok_or("Block not found")?
-                    .map_err(|c| format!("Tried to redirect lookup a second time to {}", c))?
-            }
-        };
-
-    let block = raw_block.decode().unwrap();
-
-    let (from, to, amount) = match block.transaction().operation {
-        Operation::Transfer {
-            from, to, amount, ..
-        } => (from, to, amount),
-        _ => panic!("Notification failed transfer must be of type send"),
-    };
-
-    assert_eq!(
-        (from, to),
-        (expected_from, expected_to),
-        "sender and recipient must match the specified block"
-    );
-
-    let transaction_notification_args = TransactionNotification {
-        from: caller_principal_id,
-        from_subaccount,
-        to: to_canister,
-        to_subaccount,
-        block_height,
-        amount,
-        memo: block.transaction().memo,
-    };
-
-    let block_timestamp = block.timestamp();
-
-    change_notification_state(block_height, block_timestamp, true).expect("Notification failed");
-
-    // This transaction provides and on chain record that a notification was
-    // attempted
-    let transfer = Operation::Transfer {
-        from: expected_from,
-        to: expected_to,
-        amount: TOKENs::ZERO,
-        fee: max_fee,
-    };
-
-    // While this payment has been made here, it isn't actually committed until you
-    // make an inter canister call. As such we don't reject without rollback until
-    // an inter-canister call has definitely been made
-    add_payment(Memo(block_height), transfer, None);
-
-    let response = if notify_using_protobuf {
-        let bytes = ProtoBuf(transaction_notification_args)
-            .into_bytes()
-            .expect("transaction notification serialization failed");
-        call_bytes_with_cleanup(
-            to_canister,
-            "transaction_notification_pb",
-            &bytes[..],
-            Funds::zero(),
-        )
-        .await
-    } else {
-        let bytes = candid::encode_one(transaction_notification_args)
-            .expect("transaction notification serialization failed");
-        call_bytes_with_cleanup(
-            to_canister,
-            "transaction_notification",
-            &bytes[..],
-            Funds::zero(),
-        )
-        .await
-    };
-    // Don't panic after here or the notification might look like it succeeded
-    // when actually it failed
-
-    // propagate the response/rejection from 'to_canister' if it's shorter than this
-    // length.
-    // This could be done better because we still read in the whole
-    // String/Vec as is
-    pub const MAX_LENGTH: usize = 8192;
-
-    match response {
-        Ok(bs) => {
-            if bs.len() > MAX_LENGTH {
-                let caller = caller();
-                Err(format!(
-                    "Notification succeeded, but the canister '{}' returned too large of a response",
-                    caller,
-                ))
-            } else {
-                Ok(BytesS(bs))
-            }
-        }
-        Err((_code, err)) => {
-            // It may be that by the time this callback is made the block will have been
-            // garbage collected. That is fine because we don't inspect the
-            // response here.
-            let _ = change_notification_state(block_height, block_timestamp, false);
-            if err.len() > MAX_LENGTH {
-                let caller = caller();
-                Err(format!(
-                    "Notification failed, but the canister '{}' returned too large of a response",
-                    caller,
-                ))
-            } else {
-                Err(format!("Notification failed with message '{}'", err))
-            }
-        }
-    }
 }
 
 /// This gives you the index of the last block added to the chain
@@ -416,21 +195,21 @@ fn tip_of_chain() -> TipOfChainRes {
 // This is going away and being replaced by getblocks
 fn block(block_index: BlockHeight) -> Option<Result<EncodedBlock, CanisterId>> {
     let state = LEDGER.read().unwrap();
-    if block_index < state.blockchain.num_archived_blocks() {
+    // if block_index < state.blockchain.num_archived_blocks() {
         // The block we are looking for better be in the archive because it has
         // a height smaller than the number of blocks we've archived so far
-        let result = state
-            .find_block_in_archive(block_index)
-            .expect("block not found in the archive");
-        Some(Err(result))
+        // let result = state
+        //     .find_block_in_archive(block_index)
+        //     .expect("block not found in the archive");
+        // Some(Err(result))
     // Or the block may be in the ledger, or the block may not exist
-    } else {
+    // } else {
         print(format!(
             "[ledger] Checking the ledger for block [{}]",
             block_index
         ));
         state.blockchain.get(block_index).cloned().map(Ok)
-    }
+    // }
 }
 
 /// Get an account balance.
@@ -480,55 +259,6 @@ fn send_dfx_() {
     );
 }
 
-#[export_name = "canister_update notify_pb"]
-fn notify_() {
-    // we use over_init because it doesn't reply automatically so we can do explicit
-    // replies in the callback
-    over_async_may_reject_explicit(
-        |ProtoBuf(NotifyCanisterArgs {
-             block_height,
-             max_fee,
-             from_subaccount,
-             to_canister,
-             to_subaccount,
-         })| {
-            notify(
-                block_height,
-                max_fee,
-                from_subaccount,
-                to_canister,
-                to_subaccount,
-                true,
-            )
-        },
-    );
-}
-
-/// See caveats of use on send_dfx
-#[export_name = "canister_update notify_dfx"]
-fn notify_dfx_() {
-    // we use over_init because it doesn't reply automatically so we can do explicit
-    // replies in the callback
-    over_async_may_reject_explicit(
-        |CandidOne(NotifyCanisterArgs {
-             block_height,
-             max_fee,
-             from_subaccount,
-             to_canister,
-             to_subaccount,
-         })| {
-            notify(
-                block_height,
-                max_fee,
-                from_subaccount,
-                to_canister,
-                to_subaccount,
-                false,
-            )
-        },
-    );
-}
-
 #[export_name = "canister_query block_pb"]
 fn block_() {
     over(protobuf, |BlockArg(height)| BlockRes(block(height)));
@@ -537,34 +267,6 @@ fn block_() {
 #[export_name = "canister_query tip_of_chain_pb"]
 fn tip_of_chain_() {
     over(protobuf, |protobuf::TipOfChainRequest {}| tip_of_chain());
-}
-
-#[export_name = "canister_query get_archive_index_pb"]
-fn get_archive_index_() {
-    over(protobuf, |()| {
-        let state = LEDGER.read().unwrap();
-        let entries = match &state
-            .blockchain
-            .archive
-            .try_read()
-            .expect("Failed to get lock on archive")
-            .as_ref()
-        {
-            None => vec![],
-            Some(archive) => archive
-                .index()
-                .into_iter()
-                .map(
-                    |((height_from, height_to), canister_id)| protobuf::ArchiveIndexEntry {
-                        height_from,
-                        height_to,
-                        canister_id: Some(canister_id.get()),
-                    },
-                )
-                .collect(),
-        };
-        protobuf::ArchiveIndexResponse { entries }
-    });
 }
 
 #[export_name = "canister_query account_balance_pb"]
@@ -610,23 +312,6 @@ fn get_blocks_() {
         get_blocks(&blockchain.blocks, start_offset, start, length)
     });
 }
-
-#[export_name = "canister_query get_nodes"]
-fn get_nodes_() {
-    over(candid, |()| -> Vec<CanisterId> {
-        LEDGER
-            .read()
-            .unwrap()
-            .blockchain
-            .archive
-            .try_read()
-            .expect("Failed to get lock on archive")
-            .as_ref()
-            .map(|archive| archive.nodes().to_vec())
-            .unwrap_or_default()
-    });
-}
-
 
 #[export_name = "canister_post_upgrade"]
 fn post_upgrade() {

@@ -1,9 +1,15 @@
 {
   "canisters": {
     "token_canister": {
-      "build": "./build.sh",
+      "build": "src/token_canister/build.sh",
       "candid": "src/token_canister/src/token_canister.did",
       "wasm": "target/wasm32-unknown-unknown/release/token_canister.wasm",
+      "type": "custom"
+    },
+    "archive_canister": {
+      "build": "src/archive_canister/build.sh",
+      "candid": "src/archive_canister/src/archive.did",
+      "wasm": "target/wasm32-unknown-unknown/release/archive_canister.wasm",
       "type": "custom"
     }
   },

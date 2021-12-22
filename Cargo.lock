@@ -36,6 +36,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b26702f315f53b6071259e15dd9d64528213b44d61de1ec926eca7715d62203"
 
 [[package]]
+name = "archive_canister"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "dfn_candid",
+ "dfn_core",
+ "dfn_protobuf",
+ "ic-base-types",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "ic-crypto-sha",
+ "ic-types 0.8.0",
+ "on_wire",
+ "phantom_newtype",
+ "serde",
+ "yansi",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2077,6 +2096,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 name = "token_canister"
 version = "0.1.0"
 dependencies = [
+ "archive_canister",
  "byteorder",
  "candid",
  "comparable",

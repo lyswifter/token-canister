@@ -1,5 +1,4 @@
 use candid::CandidType;
-use ic_crypto_sha::Sha256;
 use ic_types::{CanisterId, PrincipalId};
 use intmap::IntMap;
 use lazy_static::lazy_static;
@@ -23,6 +22,8 @@ pub mod account_identifier;
 pub mod ic_token;
 pub mod ic_block;
 pub mod interface;
+pub mod hashof;
+pub mod types;
 
 #[path = "../gen/ic_ledger.pb.v1.rs"]
 #[rustfmt::skip]
@@ -30,17 +31,12 @@ pub mod protobuf;
 pub mod timestamp;
 pub mod validate_endpoints;
 
-pub mod archive;
-
-use archive::Archive;
-pub use archive::ArchiveOptions;
 use dfn_core::api::now;
-
-pub mod spawn;
 pub use account_identifier::{AccountIdentifier, Subaccount};
 pub use ic_token::{TOKENs, DECIMAL_PLACES, TOKEN_SUBDIVIDABLE_BY, MIN_BURN_AMOUNT, TRANSACTION_FEE};
-pub use ic_block::{ Block, Blockchain, EncodedBlock, get_blocks };
+pub use ic_block::{ Block, Blockchain, EncodedBlock, BlockHeight, get_blocks };
 pub use protobuf::TimeStamp;
+pub use types::{ Operation, Transaction, Memo};
 
 // Helper to print messages in magenta
 pub fn print<S: std::convert::AsRef<str>>(s: S)
@@ -154,20 +150,6 @@ impl<'de, T> Deserialize<'de> for HashOf<T> {
         }
     }
 }
-
-#[derive(
-    Serialize, Deserialize, CandidType, Clone, Copy, Hash, Debug, PartialEq, Eq, PartialOrd, Ord,
-)]
-pub struct Memo(pub u64);
-
-impl Default for Memo {
-    fn default() -> Memo {
-        Memo(0)
-    }
-}
-
-/// Position of a block in the chain. The first block has position 0.
-pub type BlockHeight = u64;
 
 pub type Certification = Option<Vec<u8>>;
 
@@ -339,67 +321,6 @@ impl LedgerBalances {
     }
 }
 
-/// An operation which modifies account balances
-#[derive(
-    Serialize, Deserialize, CandidType, Clone, Hash, Debug, PartialEq, Eq, PartialOrd, Ord,
-)]
-pub enum Operation {
-    Burn {
-        from: AccountIdentifier,
-        amount: TOKENs,
-    },
-    Mint {
-        to: AccountIdentifier,
-        amount: TOKENs,
-    },
-    Transfer {
-        from: AccountIdentifier,
-        to: AccountIdentifier,
-        amount: TOKENs,
-        fee: TOKENs,
-    },
-}
-
-/// An operation with the metadata the client generated attached to it
-#[derive(
-    Serialize, Deserialize, CandidType, Clone, Hash, Debug, PartialEq, Eq, PartialOrd, Ord,
-)]
-pub struct Transaction {
-    pub operation: Operation,
-    pub memo: Memo,
-
-    /// The time this transaction was created.
-    pub created_at_time: TimeStamp,
-}
-
-impl Transaction {
-    pub fn new(
-        from: AccountIdentifier,
-        to: AccountIdentifier,
-        amount: TOKENs,
-        fee: TOKENs,
-        memo: Memo,
-        created_at_time: TimeStamp,
-    ) -> Self {
-        let operation = Operation::Transfer {
-            from,
-            to,
-            amount,
-            fee,
-        };
-        Transaction {
-            operation,
-            memo,
-            created_at_time,
-        }
-    }
-
-    pub fn hash(&self) -> HashOf<Self> {
-        let mut state = Sha256::new();
-        state.write(&serde_cbor::ser::to_vec_packed(&self).unwrap());
-        HashOf::new(state.finish())
-    }
-}
 
 fn serialize_int_map<S>(im: &IntMap<()>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -687,30 +608,30 @@ impl Ledger {
         }
     }
 
-    pub fn find_block_in_archive(&self, block_height: u64) -> Option<CanisterId> {
-        let index = self
-            .blockchain
-            .archive
-            .try_read()
-            .expect("Failed to get lock on archive")
-            .as_ref()
-            .expect("archiving not enabled")
-            .index();
-        let result = index.binary_search_by(|((from, to), _)| {
-            // If within the range we've found the right node
-            if *from <= block_height && block_height <= *to {
-                std::cmp::Ordering::Equal
-            } else if *from < block_height {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        });
-        match result {
-            Ok(i) => Some(index[i].1),
-            Err(_) => None,
-        }
-    }
+    // pub fn find_block_in_archive(&self, block_height: u64) -> Option<CanisterId> {
+    //     let index = self
+    //         .blockchain
+    //         .archive
+    //         .try_read()
+    //         .expect("Failed to get lock on archive")
+    //         .as_ref()
+    //         .expect("archiving not enabled")
+    //         .index();
+    //     let result = index.binary_search_by(|((from, to), _)| {
+    //         // If within the range we've found the right node
+    //         if *from <= block_height && block_height <= *to {
+    //             std::cmp::Ordering::Equal
+    //         } else if *from < block_height {
+    //             std::cmp::Ordering::Less
+    //         } else {
+    //             std::cmp::Ordering::Greater
+    //         }
+    //     });
+    //     match result {
+    //         Ok(i) => Some(index[i].1),
+    //         Err(_) => None,
+    //     }
+    // }
 
     pub fn remove_archived_blocks(&mut self, len: usize) {
         self.blockchain.remove_archived_blocks(len);
@@ -787,7 +708,7 @@ pub struct LedgerCanisterInitPayload {
     pub initial_values: HashMap<AccountIdentifier, TOKENs>,
     pub max_message_size_bytes: Option<usize>,
     pub transaction_window: Option<Duration>,
-    pub archive_options: Option<ArchiveOptions>,
+    // pub archive_options: Option<ArchiveOptions>,
     pub send_whitelist: HashSet<CanisterId>,
 }
 
@@ -795,7 +716,7 @@ impl LedgerCanisterInitPayload {
     pub fn new(
         minting_account: AccountIdentifier,
         initial_values: HashMap<AccountIdentifier, TOKENs>,
-        archive_options: Option<ArchiveOptions>,
+        // archive_options: Option<ArchiveOptions>,
         max_message_size_bytes: Option<usize>,
         transaction_window: Option<Duration>,
         send_whitelist: HashSet<CanisterId>,
@@ -813,7 +734,7 @@ impl LedgerCanisterInitPayload {
             initial_values,
             max_message_size_bytes,
             transaction_window,
-            archive_options,
+            // archive_options,
             send_whitelist,
         }
     }

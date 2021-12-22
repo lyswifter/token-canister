@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "src/token_canister",
+  "src/archive_canister",
 ]
 
 [profile.release]

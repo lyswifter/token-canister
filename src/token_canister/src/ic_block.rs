@@ -16,15 +16,12 @@ use ic_crypto_sha::Sha256;
 use dfn_protobuf::ProtoBuf;
 
 use crate::HashOf;
-use crate::Transaction;
-
 use crate::TimeStamp;
-use crate::Operation;
-use crate::BlockHeight;
-use crate::Memo;
-use crate::Archive; 
-
+use crate::types::{Memo, Operation, Transaction};
 use crate::print;
+
+/// Position of a block in the chain. The first block has position 0.
+pub type BlockHeight = u64;
 
 #[derive(
     Serialize, Deserialize, CandidType, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
@@ -123,7 +120,7 @@ pub struct Blockchain {
     /// The timestamp of the most recent block. Must be monotonically
     /// non-decreasing.
     pub last_timestamp: TimeStamp,
-    pub archive: Arc<RwLock<Option<Archive>>>,
+    // pub archive: Arc<RwLock<Option<Archive>>>,
 
     /// How many blocks have been sent to the archive
     pub num_archived_blocks: u64,
@@ -135,7 +132,7 @@ impl Default for Blockchain {
             blocks: vec![],
             last_hash: None,
             last_timestamp: SystemTime::UNIX_EPOCH.into(),
-            archive: Arc::new(RwLock::new(None)),
+            // archive: Arc::new(RwLock::new(None)),
             num_archived_blocks: 0,
         }
     }

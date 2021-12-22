@@ -1,5 +1,5 @@
 use crate::spawn;
-use crate::ic_block::EncodedBlock;
+use crate::EncodedBlock;
 
 use candid::CandidType;
 use ic_types::ic00::{Method, IC_00};
@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 
 // Wasm bytecode of an Archive Node
 const ARCHIVE_NODE_BYTECODE: &[u8] =
-    std::include_bytes!("../../wasm/ledger-archive-node-canister.wasm");
+    std::include_bytes!("./wasm/ledger-archive-node-canister.wasm");
 
 #[derive(Serialize, Deserialize, CandidType, Clone, Debug, PartialEq, Eq)]
 pub struct ArchiveOptions {
