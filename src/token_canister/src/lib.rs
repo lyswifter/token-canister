@@ -274,6 +274,7 @@ where
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ledger {
+    pub symbol: String,
     pub balances: LedgerBalances,
     pub blockchain: Blockchain,
     // A cap on the maximum number of accounts
@@ -312,6 +313,7 @@ struct TransactionInfo {
 impl Default for Ledger {
     fn default() -> Self {
         Self {
+            symbol: "".to_string(),
             balances: LedgerBalances::default(),
             blockchain: Blockchain::default(),
             maximum_number_of_accounts: 50_000_000,
@@ -448,12 +450,14 @@ impl Ledger {
 
     pub fn from_init(
         &mut self,
+        symbol: String,
         initial_values: HashMap<AccountIdentifier, TOKENs>,
         minting_account: AccountIdentifier,
         timestamp: TimeStamp,
         transaction_window: Option<Duration>,
         send_whitelist: HashSet<CanisterId>,
     ) {
+        self.symbol = symbol;
         self.balances.icpt_pool = TOKENs::MAX;
         self.minting_account_id = Some(minting_account);
         if let Some(t) = transaction_window {
@@ -503,31 +507,6 @@ impl Ledger {
             }
         }
     }
-
-    // pub fn find_block_in_archive(&self, block_height: u64) -> Option<CanisterId> {
-    //     let index = self
-    //         .blockchain
-    //         .archive
-    //         .try_read()
-    //         .expect("Failed to get lock on archive")
-    //         .as_ref()
-    //         .expect("archiving not enabled")
-    //         .index();
-    //     let result = index.binary_search_by(|((from, to), _)| {
-    //         // If within the range we've found the right node
-    //         if *from <= block_height && block_height <= *to {
-    //             std::cmp::Ordering::Equal
-    //         } else if *from < block_height {
-    //             std::cmp::Ordering::Less
-    //         } else {
-    //             std::cmp::Ordering::Greater
-    //         }
-    //     });
-    //     match result {
-    //         Ok(i) => Some(index[i].1),
-    //         Err(_) => None,
-    //     }
-    // }
 
     pub fn remove_archived_blocks(&mut self, len: usize) {
         self.blockchain.remove_archived_blocks(len);

@@ -36,7 +36,7 @@ use dfn_core::{
 // Initialize the ledger canister
 ///
 /// # Arguments
-///
+/// * `symbol` - The symbol name you specify to the token
 /// * `minting_account` -  The minting canister is given 2^64 - 1 tokens and it
 ///   then transfers tokens to addresses specified in the initial state.
 ///   Currently this is the only way to create tokens.
@@ -46,8 +46,9 @@ use dfn_core::{
 /// * `archive_canister` - The canister that manages the store of old blocks.
 /// * `max_message_size_bytes` - The maximum message size that this subnet
 ///   supports. This is used for egressing block to the archive canister.
-#[init]
+// #[init]
 fn init(
+    symbol: String,
     minting_account: AccountIdentifier,
     initial_values: HashMap<AccountIdentifier, TOKENs>,
     max_message_size_bytes: Option<usize>,
@@ -59,6 +60,7 @@ fn init(
         minting_account
     ));
     LEDGER.write().unwrap().from_init(
+        symbol,
         initial_values,
         minting_account,
         dfn_core::api::now().into(),

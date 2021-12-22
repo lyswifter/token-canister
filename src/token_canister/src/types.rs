@@ -1,17 +1,12 @@
-
-
-use crate::account_identifier::{ AccountIdentifier };
+use crate::account_identifier::AccountIdentifier;
 use crate::ic_token::TOKENs;
 use crate::TimeStamp;
 use crate::HashOf;
-// use ic_types::CanisterId;
 
 use candid::CandidType;
 use ic_crypto_sha::Sha256;
 
 use serde::{
-    de::{Deserializer, MapAccess, Visitor},
-    ser::SerializeMap,
     Deserialize, Serialize, Serializer,
 };
 
@@ -88,56 +83,3 @@ impl Default for Memo {
         Memo(0)
     }
 }
-
-// #[derive(Serialize, Deserialize, CandidType, Clone, Debug, PartialEq, Eq)]
-// pub struct ArchiveOptions {
-//     /// The number of blocks which, when exceeded, will trigger an archiving
-//     /// operation
-//     pub trigger_threshold: usize,
-//     /// The number of blocks to archive when trigger threshold is exceeded
-//     pub num_blocks_to_archive: usize,
-//     pub node_max_memory_size_bytes: Option<usize>,
-//     pub max_message_size_bytes: Option<usize>,
-//     pub controller_id: CanisterId,
-// }
-
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct Archive {
-//     // List of Archive Nodes
-//     nodes: Vec<CanisterId>,
-
-//     controller_id: CanisterId,
-
-//     // BlockHeights of Blocks stored in each archive node.
-
-//     // We need this because Blocks are stored in encoded format as
-//     // EncodedBlocks, and different EncodedBlocks may have different lengths.
-//     // Moreover, archive node capacity is specified in bytes instead of a fixed
-//     // number of Blocks. Thus, it is not possible to statically compute how
-//     // many EncodedBlocks will fit into an archive node -- the actual number
-//     // will vary slightly.
-
-//     // To facilitate lookup by index we will keep track of the number of Blocks
-//     // stored in each archive. We store an inclusive range [from, to]. Thus,
-//     // the range [0..9] means we store 10 blocks with indices from 0 to 9
-//     nodes_block_ranges: Vec<(u64, u64)>,
-
-//     // Maximum amount of data that can be stored in an Archive Node canister
-//     node_max_memory_size_bytes: usize,
-
-//     // Maximum inter-canister message size in bytes
-//     max_message_size_bytes: usize,
-
-//     /// How many blocks have been sent to the archive
-//     num_archived_blocks: u64,
-
-//     /// The number of blocks which, when exceeded, will trigger an archiving
-//     /// operation
-//     pub trigger_threshold: usize,
-//     /// The number of blocks to archive when trigger threshold is exceeded
-//     pub num_blocks_to_archive: usize,
-// }
-
-// /// This error type should only be returned in the case where an await has been
-// /// passed but we do not think that the archive canister has received the blocks
-// pub struct FailedToArchiveBlocks(pub String);

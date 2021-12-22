@@ -1,3 +1,42 @@
+type TOKENs = record {
+    "e8s": nat64;
+};
+
+type Operation = variant {
+    Burn : record {
+        "from": vec nat8;
+        "amount": TOKENs;
+    };
+    Mint : record {
+        "to": vec nat8;
+        "amount": TOKENs;
+    };
+    Transfer : record {
+        "from": vec nat8;
+        "to": vec nat8;
+        "amount": TOKENs;
+        "fee": TOKENs;
+    };
+};
+
+type Memo = record {
+    "memo": nat64;
+};
+
+type TimeStamp = record {
+    "timestamp_nanos": nat64;
+};
+
+type Transaction = record {
+    "operation": Operation;
+    "memo": Memo;
+    "created_at_time": TimeStamp;
+};
+
+type Subaccount = record {
+    "sub_account": vec nat8;
+}
+
 service : {
     "print": () -> () query;
 }
