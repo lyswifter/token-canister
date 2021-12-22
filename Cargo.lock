@@ -877,21 +877,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ic-registry-transport"
-version = "0.8.0"
-dependencies = [
- "bytes",
- "candid",
- "ic-cdk",
- "ic-cdk-macros",
- "ic-protobuf",
- "prost",
- "prost-build",
- "prost-types",
- "serde",
-]
-
-[[package]]
 name = "ic-types"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -931,7 +916,6 @@ dependencies = [
  "ic-error-types",
  "ic-ic00-types",
  "ic-protobuf",
- "ic-registry-transport",
  "ic-utils",
  "maplit",
  "num-traits",

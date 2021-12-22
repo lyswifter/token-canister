@@ -141,9 +141,10 @@ pub enum RegistryDataProviderError {
     /// canister.
     Timeout,
     /// Error when using registry transfer
-    Transfer {
-        source: ic_registry_transport::Error,
-    },
+    // Transfer {
+    //     source: ic_registry_transport::Error,
+    // },
+    Transfer,
 }
 
 impl std::error::Error for RegistryDataProviderError {}
@@ -152,10 +153,7 @@ impl fmt::Display for RegistryDataProviderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RegistryDataProviderError::Timeout => write!(f, "Registry transport client timed out."),
-            RegistryDataProviderError::Transfer { source } => write!(
-                f,
-                "Registry transport client failed to fetch registry update from registry canister: {}", source
-            ),
+            RegistryDataProviderError::Transfer => write!(f, "Registry transfter err"),
         }
     }
 }
