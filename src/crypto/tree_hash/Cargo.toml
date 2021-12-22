@@ -7,7 +7,7 @@ edition = "2018"
 ic-crypto-internal-types = { path = "../internal/crypto_lib/types" }
 ic-crypto-sha = { path = "../sha" }
 ic-protobuf = { path = "../../protobuf" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.99", features = ["derive"] }
 serde_bytes = "0.11"
 
 [dev-dependencies]

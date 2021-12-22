@@ -15,6 +15,8 @@ candid = "0.7.4"
 dfn_core = {path = "../rust_canisters/dfn_core"}
 dfn_candid = {path = "../rust_canisters/dfn_candid"}
 dfn_protobuf = {path = "../rust_canisters/dfn_protobuf"}
+on_wire = {path = "../rust_canisters/on_wire"}
+phantom_newtype = { path = "../phantom_newtype" }
 lazy_static = "1.4.0"
 serde = "1.0"
 byteorder = "1.4"
@@ -27,8 +29,6 @@ prost = "0.9.0"
 prost-derive = "0.9.0"
 yansi = "0.5.0"
 hex = {version = "0.4.2", features = ["serde"] }
-on_wire = {path = "../rust_canisters/on_wire"}
-phantom_newtype = { path = "../phantom_newtype" }
 crc32fast = "1.2.0"
 intmap = "0.7.0"
 comparable = { version = "0.3", features = ["derive"] }
