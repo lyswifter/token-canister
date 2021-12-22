@@ -2,3 +2,6 @@
 members = [
   "src/token_canister",
 ]
+
+[profile.release]
+lto = true

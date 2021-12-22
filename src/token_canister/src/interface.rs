@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::AccountIdentifier;
 use crate::archive;
 use crate::protobuf;
-use crate::metrics_encoder;
+// use crate::metrics_encoder;
 use crate::{LEDGER, TOKENs};
 use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
 use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, TransactionNotification, NotifyCanisterArgs};
@@ -14,7 +14,7 @@ use crate::{AccountBalanceArgs, TotalSupplyArgs, Blockchain};
 
 use crate::ic_block::{TipOfChainRes, BlockRes, BlockArg, GetBlocksArgs, IterBlocksArgs, iter_blocks};
 
-use crate:: { change_notification_state, get_blocks, http_request};
+use crate:: { change_notification_state, get_blocks};
 use crate::add_payment;
 use crate::print;
 
@@ -625,74 +625,6 @@ fn get_nodes_() {
             .map(|archive| archive.nodes().to_vec())
             .unwrap_or_default()
     });
-}
-
-fn encode_metrics(w: &mut metrics_encoder::MetricsEncoder<Vec<u8>>) -> std::io::Result<()> {
-    let ledger = LEDGER.try_read().map_err(|err| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to get a LEDGER for read: {}", err),
-        )
-    })?;
-
-    w.encode_gauge(
-        "ledger_max_message_size_bytes",
-        *MAX_MESSAGE_SIZE_BYTES.read().unwrap() as f64,
-        "Maximum inter-canister message size in bytes.",
-    )?;
-    w.encode_gauge(
-        "ledger_stable_memory_pages",
-        dfn_core::api::stable_memory_size_in_pages() as f64,
-        "Size of the stable memory allocated by this canister measured in 64K Wasm pages.",
-    )?;
-    w.encode_gauge(
-        "ledger_stable_memory_bytes",
-        (dfn_core::api::stable_memory_size_in_pages() * 64 * 1024) as f64,
-        "Size of the stable memory allocated by this canister.",
-    )?;
-    w.encode_gauge(
-        "ledger_transactions_by_hash_cache_entries",
-        ledger.transactions_by_hash_len() as f64,
-        "Total number of entries in the transactions_by_hash cache.",
-    )?;
-    w.encode_gauge(
-        "ledger_transactions_by_height_entries",
-        ledger.transactions_by_height_len() as f64,
-        "Total number of entries in the transaction_by_height queue.",
-    )?;
-    w.encode_gauge(
-        "ledger_blocks",
-        ledger.blockchain.blocks.len() as f64,
-        "Total number of blocks stored in the main memory.",
-    )?;
-    // This value can go down -- the number is increased before archiving, and if
-    // archiving fails it is decremented.
-    w.encode_gauge(
-        "ledger_archived_blocks",
-        ledger.blockchain.num_archived_blocks as f64,
-        "Total number of blocks sent to the archive.",
-    )?;
-    w.encode_gauge(
-        "ledger_balances_icpt_pool",
-        ledger.balances.icpt_pool.get_tokens() as f64,
-        "Total number of ICPTs in the pool.",
-    )?;
-    w.encode_gauge(
-        "ledger_balance_store_entries",
-        ledger.balances.store.len() as f64,
-        "Total number of accounts in the balance store.",
-    )?;
-    w.encode_gauge(
-        "ledger_most_recent_block_time_seconds",
-        ledger.blockchain.last_timestamp.timestamp_nanos as f64 / 1_000_000_000.0,
-        "IC timestamp of the most recent block.",
-    )?;
-    Ok(())
-}
-
-#[export_name = "canister_query http_request"]
-fn http_request() {
-    http_request::serve_metrics(encode_metrics);
 }
 
 

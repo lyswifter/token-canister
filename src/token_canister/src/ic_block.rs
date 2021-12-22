@@ -9,8 +9,7 @@ use serde::{
     Deserialize, Serialize,
 };
 
-use ic_types::{CanisterId, PrincipalId};
-
+use ic_types::CanisterId;
 use on_wire::{FromWire, IntoWire};
 use candid::CandidType;
 use ic_crypto_sha::Sha256;

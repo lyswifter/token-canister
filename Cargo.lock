@@ -420,19 +420,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfn_http"
-version = "0.8.0"
-dependencies = [
- "candid",
- "dfn_candid",
- "dfn_core",
- "ic-cdk",
- "ic-cdk-macros",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
 name = "dfn_json"
 version = "0.8.0"
 dependencies = [
@@ -2122,7 +2109,6 @@ dependencies = [
  "crc32fast",
  "dfn_candid",
  "dfn_core",
- "dfn_http",
  "dfn_protobuf",
  "digest",
  "hex",

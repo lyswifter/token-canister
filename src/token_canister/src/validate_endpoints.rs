@@ -11,6 +11,7 @@ use crate::ic_block::{ Block, EncodedBlock, BlockArg, BlockRes, GetBlocksArgs, G
 use crate::ic_token::TOKENs;
 
 use dfn_protobuf::ToProto;
+
 use ic_base_types::{CanisterId, CanisterIdError};
 use protobuf::cycles_notification_response::Response;
 use std::convert::{TryFrom, TryInto};
