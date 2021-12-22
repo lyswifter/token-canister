@@ -1,13 +1,12 @@
 use crate::protobuf;
 use crate::protobuf::transaction::Transfer as PTransfer;
 use crate::{
-    AccountBalanceArgs, AccountIdentifier, BlockArg, BlockRes, CyclesResponse,
-    GetBlocksArgs, GetBlocksRes, HashOf, IterBlocksArgs, IterBlocksRes, Memo,
-    NotifyCanisterArgs, Operation, SendArgs, Subaccount, TimeStamp, TipOfChainRes, TotalSupplyArgs,
+    AccountBalanceArgs, AccountIdentifier, CyclesResponse, HashOf, Memo,
+    NotifyCanisterArgs, Operation, SendArgs, Subaccount, TimeStamp, TotalSupplyArgs,
     Transaction, TransactionNotification, HASH_LENGTH, TRANSACTION_FEE,
 };
 
-use crate::ic_block::{ Block, EncodedBlock};
+use crate::ic_block::{ Block, EncodedBlock, BlockArg, BlockRes, GetBlocksArgs, GetBlocksRes, IterBlocksArgs, IterBlocksRes, TipOfChainRes};
 
 use crate::ic_token::TOKENs;
 

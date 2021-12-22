@@ -9,11 +9,12 @@ use crate::protobuf;
 use crate::metrics_encoder;
 use crate::{LEDGER, TOKENs};
 use crate::{MAX_MESSAGE_SIZE_BYTES, TRANSACTION_FEE, MIN_BURN_AMOUNT};
-use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, 
-    TipOfChainRes, BlockRes, TransactionNotification, NotifyCanisterArgs};
-use crate::{BlockArg, AccountBalanceArgs, GetBlocksArgs, TotalSupplyArgs, IterBlocksArgs, Blockchain};
+use crate::{Memo, Operation, TimeStamp, HashOf, BlockHeight, EncodedBlock, Subaccount, SendArgs, TransactionNotification, NotifyCanisterArgs};
+use crate::{AccountBalanceArgs, TotalSupplyArgs, Blockchain};
 
-use crate:: { change_notification_state, iter_blocks, get_blocks, http_request};
+use crate::ic_block::{TipOfChainRes, BlockRes, BlockArg, GetBlocksArgs, IterBlocksArgs, iter_blocks};
+
+use crate:: { change_notification_state, get_blocks, http_request};
 use crate::add_payment;
 use crate::print;
 

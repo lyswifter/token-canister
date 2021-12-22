@@ -9,6 +9,8 @@ use serde::{
     Deserialize, Serialize,
 };
 
+use ic_types::{CanisterId, PrincipalId};
+
 use on_wire::{FromWire, IntoWire};
 use candid::CandidType;
 use ic_crypto_sha::Sha256;
@@ -234,4 +236,73 @@ impl Blockchain {
 
         blocks_to_archive
     }
+}
+
+/// Argument returned by the tip_of_chain endpoint
+pub struct TipOfChainRes {
+    pub certification: Option<Vec<u8>>,
+    pub tip_index: BlockHeight,
+}
+
+pub struct GetBlocksArgs {
+    pub start: BlockHeight,
+    pub length: usize,
+}
+
+impl GetBlocksArgs {
+    pub fn new(start: BlockHeight, length: usize) -> Self {
+        GetBlocksArgs { start, length }
+    }
+}
+
+pub struct GetBlocksRes(pub Result<Vec<EncodedBlock>, String>);
+
+pub struct IterBlocksArgs {
+    pub start: usize,
+    pub length: usize,
+}
+
+impl IterBlocksArgs {
+    pub fn new(start: usize, length: usize) -> Self {
+        IterBlocksArgs { start, length }
+    }
+}
+
+pub struct IterBlocksRes(pub Vec<EncodedBlock>);
+
+// These is going away soon
+pub struct BlockArg(pub BlockHeight);
+pub struct BlockRes(pub Option<Result<EncodedBlock, CanisterId>>);
+
+// A helper function for ledger/get_blocks and archive_node/get_blocks endpoints
+pub fn get_blocks(
+    blocks: &[EncodedBlock],
+    range_from_offset: BlockHeight,
+    range_from: BlockHeight,
+    length: usize,
+) -> GetBlocksRes {
+    // Inclusive end of the range of *requested* blocks
+    let requested_range_to = range_from as usize + length - 1;
+    // Inclusive end of the range of *available* blocks
+    let range_to = range_from_offset as usize + blocks.len() - 1;
+    // Example: If the Node stores 10 blocks beginning at BlockHeight 100, i.e.
+    // [100 .. 109] then requesting blocks at BlockHeight < 100 or BlockHeight
+    // > 109 is an error
+    if range_from < range_from_offset || requested_range_to > range_to {
+        return GetBlocksRes(Err(format!("Requested blocks outside the range stored in the archive node. Requested [{} .. {}]. Available [{} .. {}].",
+            range_from, requested_range_to, range_from_offset, range_to)));
+    }
+    // Example: If the node stores blocks [100 .. 109] then BLOCK_HEIGHT_OFFSET
+    // is 100 and the Block with BlockHeight 100 is at index 0
+    let offset = (range_from - range_from_offset) as usize;
+    GetBlocksRes(Ok(blocks[offset..offset + length].to_vec()))
+}
+
+// A helper function for ledger/iter_blocks and archive_node/iter_blocks
+// endpoints
+pub fn iter_blocks(blocks: &[EncodedBlock], offset: usize, length: usize) -> IterBlocksRes {
+    let start = std::cmp::min(offset, blocks.len());
+    let end = std::cmp::min(start + length, blocks.len());
+    let blocks = blocks[start..end].to_vec();
+    IterBlocksRes(blocks)
 }
