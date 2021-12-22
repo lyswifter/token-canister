@@ -20,11 +20,10 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 pub mod account_identifier;
-// pub mod http_request;
 pub mod ic_token;
 pub mod ic_block;
 pub mod interface;
-// pub mod metrics_encoder;
+
 #[path = "../gen/ic_ledger.pb.v1.rs"]
 #[rustfmt::skip]
 pub mod protobuf;
@@ -40,8 +39,7 @@ use dfn_core::api::now;
 pub mod spawn;
 pub use account_identifier::{AccountIdentifier, Subaccount};
 pub use ic_token::{TOKENs, DECIMAL_PLACES, TOKEN_SUBDIVIDABLE_BY, MIN_BURN_AMOUNT, TRANSACTION_FEE};
-pub use ic_block::{ Block, Blockchain, EncodedBlock};
-pub use ic_block::{get_blocks};
+pub use ic_block::{ Block, Blockchain, EncodedBlock, get_blocks };
 pub use protobuf::TimeStamp;
 
 // Helper to print messages in magenta
