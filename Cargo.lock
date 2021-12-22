@@ -411,21 +411,11 @@ version = "0.8.0"
 dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
- "dfn_json",
  "futures",
  "hex",
  "ic-base-types",
  "on_wire",
  "rustversion",
-]
-
-[[package]]
-name = "dfn_json"
-version = "0.8.0"
-dependencies = [
- "on_wire",
- "serde",
- "serde_json",
 ]
 
 [[package]]

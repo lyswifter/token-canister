@@ -28,7 +28,7 @@ byteorder = "1.4"
 rustversion = "1.0"
 
 [dev-dependencies]
-dfn_json = { path = "../dfn_json" }
+# dfn_json = { path = "../dfn_json" }
 
 [features]
 nightly_compiler = []
