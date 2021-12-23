@@ -300,8 +300,8 @@ pub struct Ledger {
     /// index / block timestamp. (Block timestamps are monotonically
     /// non-decreasing, so this is the same.)
     transactions_by_height: VecDeque<TransactionInfo>,
-    /// Used to prevent non-whitelisted canisters from sending tokens
-    send_whitelist: HashSet<CanisterId>,
+    // Used to prevent non-whitelisted canisters from sending tokens
+    // send_whitelist: HashSet<CanisterId>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -323,7 +323,7 @@ impl Default for Ledger {
             transaction_window: Duration::from_secs(24 * 60 * 60),
             transactions_by_hash: BTreeMap::new(),
             transactions_by_height: VecDeque::new(),
-            send_whitelist: HashSet::new(),
+            // send_whitelist: HashSet::new(),
         }
     }
 }
@@ -455,7 +455,7 @@ impl Ledger {
         minting_account: AccountIdentifier,
         timestamp: TimeStamp,
         transaction_window: Option<Duration>,
-        send_whitelist: HashSet<CanisterId>,
+        // send_whitelist: HashSet<CanisterId>,
     ) {
         self.symbol = symbol;
         self.balances.icpt_pool = TOKENs::MAX;
@@ -474,7 +474,7 @@ impl Ledger {
             .expect(&format!("Creating account {:?} failed", to)[..]);
         }
 
-        self.send_whitelist = send_whitelist;
+        // self.send_whitelist = send_whitelist;
     }
 
     pub fn change_notification_state(
@@ -527,9 +527,9 @@ impl Ledger {
 
     /// Check if it's allowed to notify this canister
     /// Currently we reuse whitelist for that
-    pub fn can_be_notified(&self, canister_id: &CanisterId) -> bool {
-        LEDGER.read().unwrap().send_whitelist.contains(canister_id)
-    }
+    // pub fn can_be_notified(&self, canister_id: &CanisterId) -> bool {
+    //     LEDGER.read().unwrap().send_whitelist.contains(canister_id)
+    // }
 
     pub fn transactions_by_hash_len(&self) -> usize {
         self.transactions_by_hash.len()
@@ -579,7 +579,7 @@ pub struct LedgerCanisterInitPayload {
     pub max_message_size_bytes: Option<usize>,
     pub transaction_window: Option<Duration>,
     // pub archive_options: Option<ArchiveOptions>,
-    pub send_whitelist: HashSet<CanisterId>,
+    // pub send_whitelist: HashSet<CanisterId>,
 }
 
 impl LedgerCanisterInitPayload {
@@ -589,7 +589,7 @@ impl LedgerCanisterInitPayload {
         // archive_options: Option<ArchiveOptions>,
         max_message_size_bytes: Option<usize>,
         transaction_window: Option<Duration>,
-        send_whitelist: HashSet<CanisterId>,
+        // send_whitelist: HashSet<CanisterId>,
     ) -> Self {
         // verify ledger's invariant about the maximum amount
         let _can_sum = initial_values.values().fold(TOKENs::ZERO, |acc, x| {
@@ -605,7 +605,7 @@ impl LedgerCanisterInitPayload {
             max_message_size_bytes,
             transaction_window,
             // archive_options,
-            send_whitelist,
+            // send_whitelist,
         }
     }
 }
