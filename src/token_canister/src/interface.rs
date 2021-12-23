@@ -53,7 +53,6 @@ fn init(
     initial_values: HashMap<AccountIdentifier, TOKENs>,
     max_message_size_bytes: Option<usize>,
     transaction_window: Option<Duration>,
-    // send_whitelist: HashSet<CanisterId>,
 ) {
     print(format!(
         "[ledger] init(): minting account is {}",
@@ -65,7 +64,6 @@ fn init(
         minting_account,
         dfn_core::api::now().into(),
         transaction_window,
-        // send_whitelist,
     );
     match max_message_size_bytes {
         None => {
